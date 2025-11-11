@@ -1,0 +1,93 @@
+clear all
+load('attack_data_10k.mat');
+load('constants.mat');
+
+mode = 1;
+datapoints2 = datapoints * 1000000;
+samples = size(datapoints2, 1);
+traces = datapoints2(1:samples, :);
+
+% Initialize full key array
+full_key = zeros(1, 16);
+max_correlations = zeros(1, 16);
+
+% Loop over all 16 bytes
+for byte_to_attack = 1:4
+    fprintf('\n=== Attacking byte %d ===\n', byte_to_attack);
+    
+    % Prepare data - get ONLY the current byte we're attacking
+    D = plaintexts_SCA(1:samples, byte_to_attack);
+
+    % Prepare keys - all possible byte values (0-255)
+    K = 0:255;
+
+    % Calculate hypothetical intermediate values after AddRoundKey
+    V = zeros(length(K), samples, 'uint8');
+    for key_idx = 1:length(K)
+        V(key_idx, :) = bitxor(D, K(key_idx));
+    end
+
+    % Calculate hypothetical power consumption using Hamming Weight
+    H = zeros(length(K), samples);
+    for key_idx = 1:length(K)
+        for sample_idx = 1:samples
+            % Apply S-Box then get Hamming Weight
+            sbox_output = SubBytes(V(key_idx, sample_idx) + 1); % +1 for MATLAB indexing
+            H(key_idx, sample_idx) = HW(sbox_output + 1); % Hamming Weight of S-Box output
+        end
+    end
+
+    % Calculate the correlation
+    trace_length = size(traces, 2);
+    R = zeros(length(K), trace_length);
+
+    for key_index = 1:length(K)
+        if (mode == 1 && mod(key_index, 50) == 0) 
+            fprintf('Working on key guess = %d\n', K(key_index)); 
+        end
+        
+        for k = 1:trace_length
+            % Calculate correlation between hypothetical power and actual traces
+            correlation_matrix = corrcoef(H(key_index,:), traces(:,k)');
+            R(key_index, k) = correlation_matrix(1,2);
+        end    
+    end
+
+    [M,I] = max(abs(R(:)));
+    [key_row, key_col] = ind2sub(size(R),I);
+    key_found = key_row - 1;
+    
+    % Store results
+    full_key(byte_to_attack) = key_found;
+    max_correlations(byte_to_attack) = M;
+
+    % Display results for this byte
+    fprintf('Byte %d: Found key = %d, Actual key = %d, Correlation = %f\n', ...
+            byte_to_attack, key_found, key_for_matlab_computation_dec(byte_to_attack), M);
+
+    % Plotting for this byte
+    figure;
+    maxcorr = max(abs(R), [], 2); % Maximum correlation for each key guess
+    plot(K, maxcorr, 'b.-', 'LineWidth', 1, 'MarkerSize', 10);
+    hold on;
+    plot(key_found, maxcorr(key_found+1), 'ro', 'MarkerSize', 10, 'LineWidth', 2);
+    title(sprintf('CPA Attack - Key Byte %d', byte_to_attack));
+    xlabel('Key Hypothesis');
+    ylabel('Correlation');
+    grid on;
+    print(sprintf('Tiny_AES_CPA_byte_%d.png', byte_to_attack), '-dpng', '-r600');
+end
+
+% Display final results
+fprintf('\n=== FINAL RESULTS ===\n');
+fprintf('Full recovered key: ');
+fprintf('%d ', full_key);
+fprintf('\n');
+
+fprintf('Actual key: ');
+fprintf('%d ', key_for_matlab_computation_dec);
+fprintf('\n');
+
+fprintf('Max correlations per byte: ');
+fprintf('%f ', max_correlations);
+fprintf('\n');
