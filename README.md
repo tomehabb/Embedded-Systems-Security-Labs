@@ -22,7 +22,7 @@ This repository contains the complete lab work for the **Embedded Systems Securi
 ### 1. [Side Channel Attacks](labs/side-channel/)
 **Objective**: Recover cryptographic keys using power consumption and electromagnetic emissions.
 
-- **Target**: AES-128 on STM32F4 (ARM Cortex-M4)
+- **Target**: AES-128.
 - **Techniques**:
   - Simple Power Analysis (SPA)
   - Correlation Power Analysis (CPA)
@@ -37,7 +37,7 @@ This repository contains the complete lab work for the **Embedded Systems Securi
 ### 2. [Differential Fault Analysis (DFA)](labs/dfa/)
 **Objective**: Inject faults during AES execution to recover the key via differential analysis.
 
-- **Target**: AES-128 software implementation on AVR ATMega328P
+- **Target**: AES-128 software implementation.
 - **Fault Injection**:
   - Voltage glitching (Crowbar circuit)
   - Clock glitching (using FPGA)
